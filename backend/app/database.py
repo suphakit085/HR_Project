@@ -6,7 +6,10 @@ from app.config import get_settings
 
 settings = get_settings()
 
-engine = create_engine(settings.DATABASE_URL, echo=(settings.APP_ENV == "development"))
+engine = create_engine(
+    settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg://"),
+    echo=(settings.APP_ENV == "development"),
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
