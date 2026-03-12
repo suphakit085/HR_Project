@@ -3,6 +3,7 @@
 import os
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -147,6 +148,26 @@ async def get_candidate(
         raise HTTPException(status_code=404, detail="Candidate not found")
     return candidate
 
+
+
+
+@router.get("/{candidate_id}/resume")
+async def download_candidate_resume(
+    candidate_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Download the original resume file for a candidate (admin only)."""
+    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    if not candidate.resume_file_path or not os.path.exists(candidate.resume_file_path):
+        raise HTTPException(status_code=404, detail="Resume file not found on server")
+    return FileResponse(
+        path=candidate.resume_file_path,
+        filename=candidate.resume_original_name or os.path.basename(candidate.resume_file_path),
+        media_type="application/octet-stream",
+    )
 
 @router.post("/apply", response_model=ApplicationResponse)
 async def apply_to_job(

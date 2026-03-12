@@ -22,15 +22,17 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (isLogin) {
-        await login(email, password);
+        const me = await login(email, password);
         toast.success("เข้าสู่ระบบสำเร็จ!");
+        // Redirect based on actual user role
+        router.push(me.role === "admin" ? "/admin/dashboard" : "/applicant/jobs");
       } else {
         await register({ email, password, full_name: fullName, role });
         toast.success("สมัครสมาชิกสำเร็จ!");
+        setIsLogin(true);
+        setPassword("");
+        return;
       }
-      // Redirect based on role
-      const res = await fetch("/api/auth/me"); // We'll check from cookie
-      router.push(role === "admin" ? "/admin/dashboard" : "/applicant/jobs");
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {

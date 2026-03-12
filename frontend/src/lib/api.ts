@@ -8,6 +8,14 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Seed Authorization header on client-side startup
+if (typeof window !== "undefined") {
+  const token = Cookies.get("token");
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  }
+}
+
 // Add auth token to requests
 api.interceptors.request.use((config) => {
   const token = Cookies.get("token");
@@ -22,7 +30,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      Cookies.remove("token");
+      Cookies.remove("token", { path: "/" });
+      delete api.defaults.headers.common.Authorization;
       if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
         window.location.href = "/login";
       }
@@ -64,6 +73,10 @@ export const candidatesAPI = {
   list: (params?: { skip?: number; limit?: number; search?: string }) =>
     api.get("/api/candidates", { params }),
   get: (id: number) => api.get(`/api/candidates/${id}`),
+  getResume: (candidateId: number) =>
+    api.get(`/api/candidates/${candidateId}/resume`, { responseType: "blob" }),
+  compare: (data: { job_id: number; application_ids: number[] }) =>
+    api.post("/api/candidates/compare", data),
   apply: (data: { job_id: number; cover_letter?: string }) =>
     api.post("/api/candidates/apply", data),
   getApplicationsForJob: (jobId: number, params?: { skip?: number; limit?: number }) =>

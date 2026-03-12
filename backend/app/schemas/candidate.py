@@ -77,11 +77,14 @@ class CandidateCompareSummary(BaseModel):
     application_id: int
     candidate_id: int
     candidate_name: Optional[str] = None
+    match_score: Optional[float] = None
     strengths: List[str]
     gaps: List[str]
+    project_relevance_summary: Optional[str] = None
 
 
 class CandidateCompareResponse(BaseModel):
     candidates: List[CandidateCompareSummary]
     analysis: str
     recommended_application_id: int
+    recommendation_reasoning: Optional[str] = None

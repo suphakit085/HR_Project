@@ -1,0 +1,16 @@
+{
+  "typeCheckingMode": "off",
+  "reportGeneralTypeIssues": "none",
+  "reportArgumentType": "none",
+  "reportAssignmentType": "none",
+  "venvPath": "c:/HR_Project/backend",
+  "venv": "venv",
+  "extraPaths": [
+    "c:/HR_Project/backend"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "c:/HR_Project/backend"
+    }
+  ]
+}

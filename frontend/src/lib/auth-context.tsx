@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import Cookies from "js-cookie";
-import { authAPI } from "./api";
+import api, { authAPI } from "./api";
 
 interface User {
   id: number;
@@ -16,7 +16,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (data: { email: string; password: string; full_name: string; role: string }) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
@@ -44,20 +44,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     const res = await authAPI.login({ email, password });
-    Cookies.set("token", res.data.access_token, { expires: 1 });
-    const meRes = await authAPI.getMe();
+    const token = res.data.access_token;
+    Cookies.set("token", token, { expires: 1, path: "/" });
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+    const meRes = await api.get("/api/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     setUser(meRes.data);
+    return meRes.data;
   };
 
   const register = async (data: { email: string; password: string; full_name: string; role: string }) => {
     await authAPI.register(data);
-    await login(data.email, data.password);
   };
 
   const logout = () => {
-    Cookies.remove("token");
+    Cookies.remove("token", { path: "/" });
+    delete api.defaults.headers.common.Authorization;
     setUser(null);
     window.location.href = "/login";
   };
