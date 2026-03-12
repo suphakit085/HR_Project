@@ -14,7 +14,7 @@ from app.models.job import Job
 from app.schemas.candidate import (
     CandidateResponse, CandidateDetailResponse, CandidateListResponse,
     ApplicationCreate, ApplicationResponse, ApplicationWithDetails, ApplicationListResponse,
-    MatchResult,
+    MatchResult, CandidateCompareRequest, CandidateCompareResponse,
 )
 from app.api.auth import get_current_user, require_admin
 from app.services.resume_parser import process_resume
@@ -306,3 +306,58 @@ async def my_applications(
         ))
 
     return ApplicationListResponse(applications=result, total=len(result))
+
+
+@router.post("/compare", response_model=CandidateCompareResponse)
+async def compare_candidates(
+    request: CandidateCompareRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Compare multiple applicants for a specific job (admin only)."""
+    job = db.query(Job).filter(Job.id == request.job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job_data = {
+        "title": job.title,
+        "description": job.description,
+        "requirements": job.requirements,
+    }
+
+    candidates_data = []
+    for app_id in request.application_ids:
+        application = db.query(Application).filter(Application.id == app_id).first()
+        if not application:
+            raise HTTPException(status_code=404, detail=f"Application {app_id} not found")
+        
+        candidate = application.candidate
+        user = candidate.user if candidate else None
+        
+        candidates_data.append({
+            "application_id": app_id,
+            "candidate_id": candidate.id,
+            "name": user.full_name if user else "Unknown",
+            "profile": candidate.de_identified_data or {
+                "skills": candidate.skills,
+                "experience_years": candidate.experience_years,
+                "education": candidate.education
+            }
+        })
+
+    if len(candidates_data) < 2:
+        raise HTTPException(status_code=400, detail="Please provide at least 2 candidates to compare")
+
+    try:
+        comparison_result = compare_candidates_with_llm(candidates_data, job_data)
+        
+        # Log the action
+        create_audit_log(
+            db, action="candidates_compared", user_id=current_user.id,
+            entity_type="job", entity_id=job.id,
+            details=f"Compared {len(candidates_data)} candidates for job {job.id}",
+        )
+        
+        return comparison_result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compare candidates: {str(e)}")
