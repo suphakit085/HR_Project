@@ -18,6 +18,10 @@ export default function CandidatesPage() {
   const [isComparing, setIsComparing] = useState(false);
   const [compareResult, setCompareResult] = useState<any | null>(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [compareLanguage, setCompareLanguage] = useState<"th" | "en">("th");
+  const applicationScoreMap = new Map<number, number | null>(
+    applications.map((app) => [app.id, app.match_score ?? null])
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,23 +79,47 @@ export default function CandidatesPage() {
     );
   };
 
-  const handleCompare = async () => {
+  const loadCompareResult = async (
+    language: "th" | "en",
+    options?: { openModal?: boolean }
+  ) => {
     if (!selectedJob || selectedAppIds.length < 2) return;
+    const openModal = options?.openModal ?? false;
+
+    if (openModal) {
+      setShowCompareModal(true);
+      setCompareResult(null);
+    }
+
     setIsComparing(true);
-    setShowCompareModal(true);
     try {
       const res = await candidatesAPI.compare({
         job_id: selectedJob,
         application_ids: selectedAppIds,
+        output_language: language,
       });
       setCompareResult(res.data);
     } catch (error) {
       console.error("Comparison failed:", error);
       alert("Failed to compare candidates.");
-      setShowCompareModal(false);
+      if (openModal) {
+        setShowCompareModal(false);
+      }
     } finally {
       setIsComparing(false);
     }
+  };
+
+  const handleCompare = async () => {
+    await loadCompareResult(compareLanguage, { openModal: true });
+  };
+
+  const handleChangeCompareLanguage = async (nextLanguage: "th" | "en") => {
+    if (nextLanguage === compareLanguage) return;
+    setCompareLanguage(nextLanguage);
+
+    if (!showCompareModal || !compareResult) return;
+    await loadCompareResult(nextLanguage, { openModal: false });
   };
 
   const handleStatusChange = async (appId: number, newStatus: string) => {
@@ -148,11 +176,29 @@ export default function CandidatesPage() {
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <Users className="w-6 h-6 text-teal-600" />
-                ผลการวิเคราะห์เปรียบเทียบผู้สมัคร (AI Comparison)
+                {compareLanguage === "th" ? "ผลการวิเคราะห์เปรียบเทียบผู้สมัคร (AI Comparison)" : "AI Candidate Comparison"}
               </h2>
-              <button onClick={() => setShowCompareModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 text-xs">
+                  <button
+                    className={`px-2 py-1 rounded ${compareLanguage === "th" ? "bg-teal-500 text-white" : "text-gray-600"}`}
+                    onClick={() => handleChangeCompareLanguage("th")}
+                    disabled={isComparing}
+                  >
+                    TH
+                  </button>
+                  <button
+                    className={`px-2 py-1 rounded ${compareLanguage === "en" ? "bg-teal-500 text-white" : "text-gray-600"}`}
+                    onClick={() => handleChangeCompareLanguage("en")}
+                    disabled={isComparing}
+                  >
+                    EN
+                  </button>
+                </div>
+                <button onClick={() => setShowCompareModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 bg-white">
@@ -166,7 +212,7 @@ export default function CandidatesPage() {
                 <div className="space-y-8">
                   <div className="bg-teal-50 border border-teal-100 p-6 rounded-2xl">
                     <h3 className="font-bold text-teal-800 mb-3 text-lg flex items-center gap-2">
-                      <Award className="w-5 h-5" /> บทสรุปวิเคราะห์จาก AI (AI Analysis)
+                      <Award className="w-5 h-5" /> {compareLanguage === "th" ? "บทสรุปวิเคราะห์จาก AI" : "AI Analysis"}
                     </h3>
                     <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{compareResult.analysis}</p>
                   </div>
@@ -174,7 +220,7 @@ export default function CandidatesPage() {
                   {compareResult.recommendation_reasoning && (
                     <div className="bg-amber-50 border border-amber-100 p-6 rounded-2xl">
                       <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
-                        <Star className="w-5 h-5" /> ผู้ที่เหมาะสมที่สุด (Top Recommendation)
+                        <Star className="w-5 h-5" /> {compareLanguage === "th" ? "ผู้ที่เหมาะสมที่สุด" : "Top Recommendation"}
                       </h3>
                       <p className="text-gray-700">{compareResult.recommendation_reasoning}</p>
                     </div>
@@ -191,23 +237,32 @@ export default function CandidatesPage() {
                         </div>
                         
                         <div className="space-y-4">
-                          {cand.match_score && (
-                            <div>
-                              <div className="text-xs text-gray-500 font-medium mb-1">Overall Job Fit</div>
-                              <div className={`text-2xl font-bold ${getScoreColor(cand.match_score)}`}>{cand.match_score}%</div>
-                            </div>
-                          )}
+                          {(() => {
+                            const displayScore =
+                              applicationScoreMap.get(Number(cand.application_id)) ?? cand.match_score;
+                            if (displayScore === null || displayScore === undefined) return null;
+                            return (
+                              <div>
+                                <div className="text-xs text-gray-500 font-medium mb-1">
+                                  {compareLanguage === "th" ? "ความเหมาะสมโดยรวม" : "Overall Job Fit"}
+                                </div>
+                                <div className={`text-2xl font-bold ${getScoreColor(displayScore)}`}>{displayScore}%</div>
+                              </div>
+                            );
+                          })()}
                           
                           {cand.project_relevance_summary && (
                             <div>
-                              <h5 className="text-sm font-semibold text-gray-700 mb-1">Project Relevance:</h5>
+                              <h5 className="text-sm font-semibold text-gray-700 mb-1">
+                                {compareLanguage === "th" ? "ความเกี่ยวข้องของโปรเจกต์:" : "Project Relevance:"}
+                              </h5>
                               <p className="text-sm text-gray-600 leading-relaxed">{cand.project_relevance_summary}</p>
                             </div>
                           )}
 
                           <div>
                             <h5 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Strengths (จุดแข็ง)
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {compareLanguage === "th" ? "จุดแข็ง" : "Strengths"}
                             </h5>
                             <ul className="list-disc pl-5 space-y-1">
                               {cand.strengths?.map((s: string, i: number) => (
@@ -218,7 +273,7 @@ export default function CandidatesPage() {
 
                           <div>
                             <h5 className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> Gaps (ส่วนที่ขาด / ควรพิจารณา)
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> {compareLanguage === "th" ? "ส่วนที่ขาด / ควรพิจารณา" : "Gaps"}
                             </h5>
                             <ul className="list-disc pl-5 space-y-1">
                               {cand.gaps?.map((g: string, i: number) => (
@@ -234,7 +289,7 @@ export default function CandidatesPage() {
               ) : (
                 <div className="text-center py-8 text-red-500 flex flex-col items-center">
                   <X className="w-12 h-12 mb-2 opacity-50" />
-                  <p>ไม่สามารถโหลดข้อมูลเปรียบเทียบได้</p>
+                  <p>{compareLanguage === "th" ? "ไม่สามารถโหลดข้อมูลเปรียบเทียบได้" : "Failed to load comparison data."}</p>
                 </div>
               )}
             </div>
@@ -336,7 +391,7 @@ export default function CandidatesPage() {
                         <div className={`text-3xl font-black ${getScoreColor(app.match_score)}`}>
                           {app.match_score ? `${app.match_score}%` : "N/A"}
                         </div>
-                        <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">Fit Score</div>
+                        <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">{compareLanguage === "th" ? "คะแนนความเหมาะสม" : "Fit Score"}</div>
                       </div>
 
                       {/* Actions */}
@@ -370,7 +425,7 @@ export default function CandidatesPage() {
                           title="Download Original Resume File"
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          View Resume
+                          {compareLanguage === "th" ? "ดูเรซูเม่" : "View Resume"}
                         </button>
                       </div>
 
@@ -392,8 +447,7 @@ export default function CandidatesPage() {
                       {app.match_reasoning && (
                         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                           <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1.5">
-                            <Star className="w-4 h-4 text-amber-400" /> 
-                            การวิเคราะห์ความเหมาะสม (Overall Reasoning)
+                            <Star className="w-4 h-4 text-amber-400" /> {compareLanguage === "th" ? "การวิเคราะห์ความเหมาะสม" : "Overall Reasoning"}
                           </h4>
                           <p className="text-sm text-gray-600 leading-relaxed">{app.match_reasoning}</p>
                         </div>

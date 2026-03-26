@@ -22,10 +22,30 @@ export default function ChatbotWidget() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const contextCacheRef = useRef<{ text: string; fetchedAt: number } | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const getRuntimeContext = async (): Promise<string | undefined> => {
+    const cache = contextCacheRef.current;
+    if (cache && Date.now() - cache.fetchedAt < 30_000) {
+      return cache.text;
+    }
+
+    try {
+      const res = await chatbotAPI.getContextSummary();
+      const text = typeof res.data?.context === "string" ? res.data.context : "";
+      if (text) {
+        contextCacheRef.current = { text, fetchedAt: Date.now() };
+        return text;
+      }
+    } catch {
+      // Context is optional. Chat should still work without it.
+    }
+    return undefined;
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -35,9 +55,11 @@ export default function ChatbotWidget() {
     setLoading(true);
 
     try {
+      const runtimeContext = await getRuntimeContext();
       const res = await chatbotAPI.sendMessage({
         message: userMsg,
         session_id: sessionId || undefined,
+        context: runtimeContext,
       });
       setSessionId(res.data.session_id);
       setMessages((prev) => [
@@ -58,6 +80,7 @@ export default function ChatbotWidget() {
     if (sessionId) {
       chatbotAPI.clearSession(sessionId).catch(() => {});
     }
+    contextCacheRef.current = null;
     setMessages([
       {
         role: "assistant",

@@ -1,7 +1,7 @@
 """Pydantic schemas for Candidate and Application operations."""
 
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from datetime import datetime
 
 
@@ -71,6 +71,7 @@ class MatchResult(BaseModel):
 class CandidateCompareRequest(BaseModel):
     job_id: int
     application_ids: List[int]
+    output_language: Optional[Literal["th", "en"]] = "th"
     
 
 class CandidateCompareSummary(BaseModel):

@@ -75,7 +75,7 @@ export const candidatesAPI = {
   get: (id: number) => api.get(`/api/candidates/${id}`),
   getResume: (candidateId: number) =>
     api.get(`/api/candidates/${candidateId}/resume`, { responseType: "blob" }),
-  compare: (data: { job_id: number; application_ids: number[] }) =>
+  compare: (data: { job_id: number; application_ids: number[]; output_language?: "th" | "en" }) =>
     api.post("/api/candidates/compare", data),
   apply: (data: { job_id: number; cover_letter?: string }) =>
     api.post("/api/candidates/apply", data),
@@ -90,6 +90,8 @@ export const candidatesAPI = {
 export const chatbotAPI = {
   sendMessage: (data: { message: string; session_id?: string; context?: string }) =>
     api.post("/api/chatbot", data),
+  getContextSummary: () =>
+    api.get("/api/chatbot/context/summary"),
   clearSession: (sessionId: string) =>
     api.delete(`/api/chatbot/session/${sessionId}`),
 };
@@ -101,3 +103,4 @@ export const auditAPI = {
 };
 
 export default api;
+

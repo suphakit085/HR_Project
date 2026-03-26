@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { Bot, LogOut, Briefcase, FileText } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import ChatbotWidget from "@/components/ChatbotWidget";
 
 const links = [
   { href: "/applicant/jobs", label: "ตำแหน่งงาน", icon: Briefcase },
@@ -73,7 +72,6 @@ export default function ApplicantLayout({ children }: { children: React.ReactNod
       <main className="max-w-6xl mx-auto p-6">
         {children}
       </main>
-      <ChatbotWidget />
     </div>
   );
 }

@@ -27,6 +27,33 @@ router = APIRouter(prefix="/api/candidates", tags=["Candidates"])
 settings = get_settings()
 
 
+def _normalize_compare_scores(
+    comparison_result: dict,
+    application_score_map: dict[int, Optional[float]],
+) -> dict:
+    """Force compare output scores to match stored application.match_score."""
+    candidates = comparison_result.get("candidates", [])
+    for cand in candidates:
+        try:
+            app_id = int(cand.get("application_id"))
+            cand["application_id"] = app_id
+        except (TypeError, ValueError):
+            continue
+
+        stored_score = application_score_map.get(app_id)
+        if stored_score is not None:
+            cand["match_score"] = round(float(stored_score), 2)
+
+    try:
+        comparison_result["recommended_application_id"] = int(
+            comparison_result.get("recommended_application_id")
+        )
+    except (TypeError, ValueError):
+        pass
+
+    return comparison_result
+
+
 @router.post("/upload-resume", response_model=CandidateResponse)
 async def upload_resume(
     file: UploadFile = File(...),
@@ -210,6 +237,7 @@ async def apply_to_job(
                     "description": job.description,
                     "requirements": job.requirements,
                 },
+                output_language="th",
             )
             match_score = match_result["final_score"]
             match_reasoning = match_result.get("reasoning", "")
@@ -347,6 +375,7 @@ async def compare_candidates(
     }
 
     candidates_data = []
+    application_score_map: dict[int, Optional[float]] = {}
     for app_id in request.application_ids:
         application = db.query(Application).filter(Application.id == app_id).first()
         if not application:
@@ -363,14 +392,21 @@ async def compare_candidates(
                 "skills": candidate.skills,
                 "experience_years": candidate.experience_years,
                 "education": candidate.education
-            }
+            },
+            "stored_match_score": application.match_score,
         })
+        application_score_map[app_id] = application.match_score
 
     if len(candidates_data) < 2:
         raise HTTPException(status_code=400, detail="Please provide at least 2 candidates to compare")
 
     try:
-        comparison_result = compare_candidates_with_llm(candidates_data, job_data)
+        comparison_result = compare_candidates_with_llm(
+            candidates_data,
+            job_data,
+            output_language=request.output_language or "th",
+        )
+        comparison_result = _normalize_compare_scores(comparison_result, application_score_map)
         
         # Log the action
         create_audit_log(
