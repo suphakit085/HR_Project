@@ -405,13 +405,13 @@ export default function CandidatesPage() {
                               ${app.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' : ''}
                               ${app.status === 'shortlisted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}
                               ${app.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' : ''}
-                              ${app.status === 'interviewing' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
+                              ${app.status === 'interview' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
                               ${app.status === 'hired' ? 'bg-purple-50 text-purple-700 border-purple-200' : ''}
                             `}
                           >
                             <option value="pending">⏳ Pending</option>
                             <option value="shortlisted">⭐ Target</option>
-                            <option value="interviewing">🗣️ Interview</option>
+                            <option value="interview">🗣️ Interview</option>
                             <option value="hired">🎉 Hired</option>
                             <option value="rejected">❌ Rejected</option>
                           </select>
